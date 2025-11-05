@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.library.mapper.BorrowRecordMapper">
+    
+    <!-- 借阅记录结果映射 -->
+    <resultMap id="BorrowRecordDTOMap" type="com.library.dto.BorrowRecordDTO">
+        <id column="record_id" property="recordId"/>
+        <result column="user_id" property="userId"/>
+        <result column="username" property="username"/>
+        <result column="user_name" property="userName"/>
+        <result column="book_id" property="bookId"/>
+        <result column="book_title" property="bookTitle"/>
+        <result column="book_author" property="bookAuthor"/>
+        <result column="book_isbn" property="bookIsbn"/>
+        <result column="borrow_date" property="borrowDate"/>
+        <result column="due_date" property="dueDate"/>
+        <result column="return_date" property="returnDate"/>
+        <result column="renew_count" property="renewCount"/>
+        <result column="status" property="status"/>
+        <result column="overdue_days" property="overdueDays"/>
+        <result column="overdue_fee" property="overdueFee"/>
+        <result column="book_status" property="bookStatus"/>
+        <result column="remark" property="remark"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+    
+    <!-- 查询借阅记录列表（包含图书和用户信息） -->
+    <select id="selectBorrowRecordList" resultMap="BorrowRecordDTOMap">
+        SELECT 
+            br.record_id,
+            br.user_id,
+            u.username,
+            u.name AS user_name,
+            br.book_id,
+            b.title AS book_title,
+            b.author AS book_author,
+            b.isbn AS book_isbn,
+            br.borrow_date,
+            br.due_date,
+            br.return_date,
+            br.renew_count,
+            br.status,
+            br.overdue_days,
+            br.overdue_fee,
+            br.book_status,
+            br.remark,
+            br.create_time,
+            br.update_time
+        FROM borrow_record br
+        LEFT JOIN user u ON br.user_id = u.user_id
+        LEFT JOIN book b ON br.book_id = b.book_id
+        <where>
+            <if test="query.userId != null and query.userId != ''">
+                AND br.user_id = #{query.userId}
+            </if>
+            <if test="query.bookIdOrIsbn != null and query.bookIdOrIsbn != ''">
+                AND (br.book_id = #{query.bookIdOrIsbn} OR b.isbn = #{query.bookIdOrIsbn})
+            </if>
+            <if test="query.bookTitle != null and query.bookTitle != ''">
+                AND b.title LIKE CONCAT('%', #{query.bookTitle}, '%')
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND br.status = #{query.status}
+            </if>
+            <if test="query.overdue != null and query.overdue == true">
+                AND br.status = '借阅中' AND br.due_date &lt; NOW()
+            </if>
+            <if test="query.borrowDateStart != null">
+                AND br.borrow_date &gt;= #{query.borrowDateStart}
+            </if>
+            <if test="query.borrowDateEnd != null">
+                AND br.borrow_date &lt;= #{query.borrowDateEnd}
+            </if>
+        </where>
+        ORDER BY br.borrow_date DESC
+    </select>
+    
+    <!-- 查询用户的当前借阅数量 -->
+    <select id="countBorrowingByUserId" resultType="java.lang.Integer">
+        SELECT COUNT(*) 
+        FROM borrow_record 
+        WHERE user_id = #{userId} 
+        AND status IN ('借阅中', '已逾期')
+    </select>
+    
+    <!-- 查询用户是否有逾期未还的图书 -->
+    <select id="countOverdueByUserId" resultType="java.lang.Integer">
+        SELECT COUNT(*) 
+        FROM borrow_record 
+        WHERE user_id = #{userId} 
+        AND status IN ('借阅中', '已逾期')
+        AND due_date &lt; NOW()
+    </select>
+    
+    <!-- 查询用户是否已借阅该图书且未归还 -->
+    <select id="countBorrowingByUserIdAndBookId" resultType="java.lang.Integer">
+        SELECT COUNT(*) 
+        FROM borrow_record 
+        WHERE user_id = #{userId} 
+        AND book_id = #{bookId}
+        AND status IN ('借阅中', '已逾期')
+    </select>
+    
+    <!-- 查询图书的所有借阅记录 -->
+    <select id="selectBorrowRecordsByBookId" resultMap="BorrowRecordDTOMap">
+        SELECT 
+            br.record_id,
+            br.user_id,
+            u.username,
+            u.name AS user_name,
+            br.book_id,
+            b.title AS book_title,
+            b.author AS book_author,
+            b.isbn AS book_isbn,
+            br.borrow_date,
+            br.due_date,
+            br.return_date,
+            br.renew_count,
+            br.status,
+            br.overdue_days,
+            br.overdue_fee,
+            br.book_status,
+            br.remark,
+            br.create_time,
+            br.update_time
+        FROM borrow_record br
+        LEFT JOIN user u ON br.user_id = u.user_id
+        LEFT JOIN book b ON br.book_id = b.book_id
+        WHERE br.book_id = #{bookId}
+        ORDER BY br.borrow_date DESC
+    </select>
+    
+    <!-- 查询所有逾期记录 -->
+    <select id="selectOverdueRecords" resultMap="BorrowRecordDTOMap">
+        SELECT 
+            br.record_id,
+            br.user_id,
+            u.username,
+            u.name AS user_name,
+            br.book_id,
+            b.title AS book_title,
+            b.author AS book_author,
+            b.isbn AS book_isbn,
+            br.borrow_date,
+            br.due_date,
+            br.return_date,
+            br.renew_count,
+            br.status,
+            br.overdue_days,
+            br.overdue_fee,
+            br.book_status,
+            br.remark,
+            br.create_time,
+            br.update_time
+        FROM borrow_record br
+        LEFT JOIN user u ON br.user_id = u.user_id
+        LEFT JOIN book b ON br.book_id = b.book_id
+        <where>
+            AND br.status IN ('借阅中', '已逾期')
+            AND br.due_date &lt; NOW()
+            <if test="query.userId != null and query.userId != ''">
+                AND br.user_id = #{query.userId}
+            </if>
+            <if test="query.bookIdOrIsbn != null and query.bookIdOrIsbn != ''">
+                AND (br.book_id = #{query.bookIdOrIsbn} OR b.isbn = #{query.bookIdOrIsbn})
+            </if>
+            <if test="query.bookTitle != null and query.bookTitle != ''">
+                AND b.title LIKE CONCAT('%', #{query.bookTitle}, '%')
+            </if>
+        </where>
+        ORDER BY br.due_date ASC
+    </select>
+    
+</mapper>
+
